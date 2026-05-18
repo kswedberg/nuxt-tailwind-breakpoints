@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "nuxt-tailwind-breakpoints-playground",
+  "name": "nuxt3-tailwind-breakpoints-playground",
   "type": "module",
   "scripts": {
     "dev": "nuxi dev",
@@ -8,6 +8,7 @@
     "generate": "nuxi generate"
   },
   "devDependencies": {
-    "nuxt": "latest"
+    "nuxt": "latest",
+    "@tailwindcss/vite": "workspace:*"
   }
 }

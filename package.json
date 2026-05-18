@@ -1,8 +1,11 @@
 {
-  "name": "nuxt-tailwind-breakpoints",
-  "version": "2.1.0",
-  "description": "Show Tailwind CSS Breakpoints in Nuxt 3",
-  "repository": "kswedberg/nuxt-tailwind-breakpoints",
+  "name": "nuxt3-tailwind-breakpoints",
+  "version": "1.1.1",
+  "description": "Show Tailwind CSS Breakpoints in Nuxt (compatible with Nuxt 3 / Nuxt 4 and Tailwind CSS 3 / 4)",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:kswedberg/nuxt3-tailwind-breakpoints.git"
+  },
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -17,46 +20,52 @@
   "files": [
     "dist"
   ],
-  "contributors": [
-    {
-      "name": "Karl Swedberg (@kswedberg)"
-    },
-    {
-      "name": "Natthakit Khamso (@motion-work)"
-    },
-    {
-      "name": "Tom Diggelmann (@buffalom)"
-    }
+  "keywords": [
+    "nuxt",
+    "nuxt3",
+    "tailwind",
+    "tailwindcss",
+    "module",
+    "breakpoints",
+    "responsive design"
   ],
   "scripts": {
-    "prepack": "nuxt-module-build",
-    "dev": "cd playground && nuxi dev",
+    "prepack": "nuxt-module-build build",
+    "dev": "nuxi dev playground",
     "dev:build": "cd playground && nuxi build",
-    "dev:prepare": "nuxt-module-build --stub && nuxi prepare playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxi prepare playground",
     "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest watch"
   },
   "dependencies": {
-    "@nuxt/kit": "^3.7.2",
-    "interactjs": "^1.10.18",
-    "tailwindcss": "^3.3.3"
+    "@nuxt/kit": "^4.4.6"
+  },
+  "peerDependencies": {
+    "tailwindcss": "^3.0.0 || ^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "tailwindcss": {
+      "optional": true
+    }
   },
   "devDependencies": {
-    "@nuxt/devtools": "latest",
-    "@nuxt/eslint-config": "^0.2.0",
-    "@nuxt/module-builder": "^0.5.1",
-    "@nuxt/schema": "^3.7.2",
-    "@nuxt/test-utils": "^3.7.3",
-    "@types/node": "^18.17.15",
-    "changelogen": "^0.5.5",
-    "eslint": "^8.49.0",
-    "eslint-config-kswedberg": "^5.4.0",
+    "@nuxt/eslint": "^1.15.2",
+    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.4.6",
+    "@nuxt/test-utils": "^4.0.3",
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/node": "^25.9.0",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.4.0",
+    "eslint-config-kswedberg": "^7.3.2",
     "eslint-plugin-import": "^2.28.1",
-    "eslint-plugin-promise": "^6.1.1",
-    "eslint-plugin-vue": "^9.17.0",
-    "nuxt": "^3.7.3",
-    "vitest": "^0.33.0"
+    "eslint-plugin-promise": "^7.3.0",
+    "eslint-plugin-vue": "^10.9.1",
+    "nuxt": "^4.4.6",
+    "tailwindcss": "^4.3.0",
+    "vitest": "^4.1.6"
   }
 }

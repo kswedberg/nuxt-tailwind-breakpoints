@@ -5,25 +5,23 @@ import {defineNuxtPlugin, useRuntimeConfig} from '#app';
 
 export default defineNuxtPlugin((nuxtApp) => {
   const config = useRuntimeConfig();
-
-  console.log('Plugin injected by nuxt-tailwind-breakpoints!');
-  console.log('from plugin.ts: config.public', config.public.tailwindBreakpoints);
-
-  const twb = createApp({extends: TailwindBreakpoints}, {
-    ...config.public.tailwindBreakpoints,
+  const twbConfig = config.public.tailwindBreakpoints || {};
+  const twb = createApp({
+    extends: TailwindBreakpoints,
+    devtools: {
+      hide: true,
+    },
+  }, {
+    ...twbConfig,
   });
 
   if (typeof document !== 'undefined' && document.createElement) {
     const mountElement = document.createElement('div');
 
-    console.log('made it!!', twb);
+    mountElement.id = 'tailwind-breakpoints';
+    mountElement.setAttribute('data-v-inspector-ignore', 'true');
+
     document.body.appendChild(mountElement);
     twb.mount(mountElement);
-  } else {
-    console.log('No Document!');
   }
-
-
-  // twb.mount('#twb');
-
 });

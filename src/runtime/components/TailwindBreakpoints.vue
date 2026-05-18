@@ -6,50 +6,50 @@
     :class="`color-scheme-${colorScheme}`"
   >
     <div
-      v-show="!TOGGLE_ME_TO_HIDE_BREAKY"
       @click.stop="toggleExpanded"
+      @pointerdown.left="start"
+      @pointerup="end"
+      @pointercancel="end"
+      @pointermove="($event) => dragging ? move($event) : null"
+      @touchstart.prevent=""
+      @dragstart.prevent=""
+
       ref="breaky"
       class="card"
       :class="[
         draggableTransitionClasses,
-        {
-          'column-reverse': currentPosition.includes('top'),
-          column: currentPosition.includes('bottom'),
-        },
+        currentPosition.includes('top') ? 'column-reverse' : 'column',
       ]"
     >
       <div ref="panelwrapper" :class="['panel-wrapper', expanded && 'panel-expanded']">
         <!-- Selected Panel -->
         <span
-          v-show="foundBreakpoint !== 0"
+          v-show="foundBreakpointIndex !== 0"
           class="selected-panel h-selected bg-selected"
-          :style="{ transform: `translateY(calc(100% * ${selected}))` }"
+          :style="{ transform: `translateY(calc(100% * ${foundBreakpointIndex -1}))` }"
         />
         <!-- END Selected Panel -->
         <ul class="panel-list">
           <li
-            v-for="(bp, name, index) in mappedBreakpoints"
+            v-for="(bp, index) in breakpointsArray"
             :key="index"
-            class="panel"
-            :class="{ translucent: selected !== index }"
+            :class="['panel', selectedIndex !== index && 'translucent']"
           >
-            <span>{{ name }} </span>
-            <span class="bp">{{ bp }}px</span>
+            <span>{{ bp.name }} </span>
+            <span class="bp">{{ bp.label }}</span>
           </li>
         </ul>
       </div>
 
-
       <div class="current-breakpoint" :class="{ 'border-opacity': !expanded }">
         <CurrentScreenIcon :screen-width="screenWidth" />
-        {{ currentBreakpoint }} - {{ screenWidth }}px
+        {{ currentBreakpointName }} - {{ screenWidth }}px
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import interact from 'interactjs';
 import CurrentScreenIcon from './CurrentScreenIcon';
 
 export const throttle = function(fn, timerDelay, context) {
@@ -59,7 +59,7 @@ export const throttle = function(fn, timerDelay, context) {
 
   return function(...args) {
     const ctx = context || this;
-    const now = +new Date();
+    const now = Date.now();
 
     if (!previous) {
       fn.apply(ctx, args);
@@ -67,7 +67,7 @@ export const throttle = function(fn, timerDelay, context) {
     } else {
       clearTimeout(timedFn);
       timedFn = setTimeout(() => {
-        const then = +new Date();
+        const then = Date.now();
 
         if (then - previous >= delay) {
           fn.apply(ctx, args);
@@ -78,7 +78,38 @@ export const throttle = function(fn, timerDelay, context) {
   };
 };
 
-const getMinWidth = (breakpoint) => {
+// Assume the standard 16px root font size. Users with a custom :root font size
+// can still pass explicit pixel values via the `breakpoints` option.
+const REM_BASE_PX = 16;
+
+/**
+ * Convert a CSS length string (e.g. '768px', '48rem', '40em') to pixels.
+ * Returns null if the value cannot be parsed.
+ */
+const cssLengthToPx = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const match = value.trim().match(/^(-?[\d.]+)(px|rem|em)?$/);
+
+  if (!match) {
+    return null;
+  }
+  const num = Number.parseFloat(match[1]);
+
+  if (!Number.isFinite(num)) {
+    return null;
+  }
+  const unit = match[2] || 'px';
+
+  if (unit === 'px') {
+    return num;
+  }
+
+  return num * REM_BASE_PX;
+};
+
+const getMinWidthPx = (breakpoint) => {
   if (!breakpoint || typeof breakpoint.raw !== 'string') {
     return null;
   }
@@ -88,7 +119,25 @@ const getMinWidth = (breakpoint) => {
     return i === 0 || i === 1 || (i > 1 && q.includes('screen'));
   });
 
-  return minWidthQuery && minWidthQuery.match(/min-width:\s*(\d+)px/);
+  if (!minWidthQuery) {
+    return null;
+  }
+  const match = minWidthQuery.match(/min-width:\s*(-?[\d.]+(?:px|rem|em)?)/);
+
+  return match ? cssLengthToPx(match[1]) : null;
+};
+
+const mapWidthToPixels = (val) => {
+  let px = null;
+
+  if (typeof val === 'string') {
+    px = cssLengthToPx(val);
+  } else if (this.parseRaw) {
+    px = getMinWidthPx(val);
+  }
+
+  return px !== null ? Math.round(px) : null;
+
 };
 
 export default {
@@ -102,9 +151,18 @@ export default {
       type: Object,
       required: true,
     },
-    startingPosition: {
+    position: {
       type: String,
       default: 'bottomRight',
+    },
+    offset: {
+      type: Object,
+      default() {
+        return {
+          x: 32,
+          y: 24,
+        };
+      },
     },
     colorScheme: {
       type: String,
@@ -118,49 +176,49 @@ export default {
 
   data() {
     return {
-      TOGGLE_ME_TO_HIDE_BREAKY: false,
       expanded: false,
       noExpand: false,
       screenWidth: window.innerWidth,
       screenHeight: window.innerHeight,
-      currentPosition: this.startingPosition,
+      currentPosition: this.position,
       draggableTransitionClasses: ['draggable-transition'],
       height: 0,
       visibility: '',
+      closedDimensions: {},
+      dragging: false,
     };
   },
 
   computed: {
     /**
-     * Convert the breakpoints to integers and filter non-pixel values
-     * example: 1024px => 1024
+     * Convert the breakpoints to integer pixel values.
+     * Supports px, rem and em units.
+     * Filters out values that cannot be parsed.
+     * example (Tailwind v3): '1024px' => 1024
+     * example (Tailwind v4): '64rem'  => 1024
+     * example with {parseRaw: true}: {raw: 'print, (min-width: 1024px)'} => 1024
      */
-    mappedBreakpoints() {
-      return Object.entries(this.breakpoints).reduce((obj, [key, val]) => {
-        let match;
 
-        if (typeof val === 'string') {
-          match = val.match(/(\d+)px/);
-        } else if (this.parseRaw) {
-          match = getMinWidth(val);
-        }
-        if (match) {
-          obj[key] = parseInt(match[1]);
-        }
+    breakpointsArray() {
+      return Object.entries(this.breakpoints)
+      .map(([key, originalValue]) => {
+        const px = mapWidthToPixels(originalValue);
+        const value = px ? `${px}px` : originalValue;
+        const label = value === originalValue ? originalValue : `${value} (${originalValue})`;
 
-        return obj;
-      }, {});
-    },
-
-    /**
-     * Sort mapped breakpoints based on its values
-     */
-    sortedBreakpoints() {
-      return Object.keys(this.mappedBreakpoints).sort((a, b) => {
-        if (this.mappedBreakpoints[a] < this.mappedBreakpoints[b]) {
+        return {
+          name: key,
+          px,
+          value,
+          label,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.px < b.px) {
           return -1;
         }
-        if (this.mappedBreakpoints[a] > this.mappedBreakpoints[b]) {
+        if (a.px > b.px) {
           return 1;
         }
 
@@ -171,49 +229,39 @@ export default {
     /**
      * Get the index of the current breakpoint based on the screen width
      */
-    foundBreakpoint() {
-      return this.sortedBreakpoints.findIndex(
-        (key) => this.mappedBreakpoints[key] > this.screenWidth
-      );
+    foundBreakpointIndex() {
+      return this.breakpointsArray.findIndex((bp) => {
+        return bp.px >= this.screenWidth;
+      });
     },
 
     /**
      * Get the index of the current active breakpoint
      */
-    selected() {
-      return this.sortedBreakpoints.findIndex(
-        (bp) => bp === this.currentBreakpoint
-      );
+    selectedIndex() {
+      return this.breakpointsArray.findIndex((bp) => {
+        return bp.name === this.currentBreakpointName;
+      });
     },
 
     /**
      * Evaluate the current breakpoint based on the
      * browser screen width
      */
-    currentBreakpoint() {
+    currentBreakpointName() {
       // check if the screen is smaller than the smallest
       // defined screen in the tailwind config
-      if (this.foundBreakpoint === 0) {
-        return `< ${this.mappedBreakpoints[this.sortedBreakpoints[0]]}px`;
+      if (this.foundBreakpointIndex === 0) {
+        return `< ${this.breakpointsArray[0].value}`;
       }
 
       // when no breakpoint has been found take the highest
-      if (this.foundBreakpoint === -1) {
-        return this.sortedBreakpoints[this.sortedBreakpoints.length - 1];
+      if (this.foundBreakpointIndex === -1) {
+        return this.breakpointsArray[this.breakpointsArray.length - 1].name;
       }
 
-      // set the found breakpoint
-      return this.sortedBreakpoints[this.foundBreakpoint - 1];
-    },
-
-    /**
-     * Get the elements positioning offset
-     */
-    offset() {
-      return {
-        x: 32,
-        y: 24,
-      };
+      // set the current breakpoint
+      return this.breakpointsArray[this.foundBreakpointIndex - 1].name;
     },
 
     /**
@@ -250,11 +298,16 @@ export default {
 
   mounted() {
     this.resizeHandler();
+    this.closedDimensions = {
+      w: this.$refs.breaky.clientWidth,
+      h: this.$refs.breaky.clientHeight,
+    };
 
+    console.log(this.closedDimensions);
     window.addEventListener('resize', this.resizeHandler);
 
     this.applyStartingPosition();
-    this.initInteract();
+    // this.initInteract();
   },
   beforeUnmount() {
     window.removeEventListener('resize', this.resizeHandler);
@@ -265,14 +318,12 @@ export default {
      *  Apply the starting position passed through as a prop
      */
     applyStartingPosition() {
-      if (typeof this[this.startingPosition] === 'object') {
-        // get the elements size
-        const w = this.$refs.breaky.clientWidth;
-        const h = this.$refs.breaky.clientHeight;
+      // position is bottomLeft | bottomRight | topLeft | topRight
+      if (typeof this[this.position] === 'object') {
         // get target coordinates
-        const {x, y} = this[this.startingPosition];
+        const {x, y} = this[this.position];
 
-        this.updatePosition(this.$refs.breaky, x, y, w, h);
+        this.updatePosition({target: this.$refs.breaky, x, y});
       }
     },
 
@@ -287,22 +338,63 @@ export default {
     /**
      *  Update the element's position
      */
-    updatePosition(target, x, y, w, h) {
+    updatePosition({x, y, w = 0, h = 0}) {
+      const target = this.$refs.breaky;
+
       if (x > this.screenWidth / 2) {
         target.style.left = 'auto';
-        target.style.right = `${this.screenWidth - x}px`;
+        target.style.right = `${this.screenWidth - x - w / 2}px`;
       } else {
-        target.style.left = `${x}px`;
+        target.style.left = `${x - w / 2}px`;
         target.style.right = 'auto';
       }
 
       if (y > this.screenHeight / 2) {
         target.style.top = 'auto';
-        target.style.bottom = `${this.screenHeight - y}px`;
+        target.style.bottom = `${this.screenHeight - y - h / 2}px`;
       } else {
-        target.style.top = `${y}px`;
+        target.style.top = `${y - h / 2}px`;
         target.style.bottom = 'auto';
       }
+    },
+
+    start(event) {
+      const target = this.$refs.breaky;
+
+      target.setPointerCapture(event.pointerId);
+      this.toggleTransitionClass('remove');
+      this.dragging = true;
+    },
+    move(event) {
+      // prevent from expanding and transitioning while dragging;
+      this.noExpand = true;
+      // update the element's position based on its current size.
+      // the size may have changed if the element has been extended before this method is called.
+      // this matters if we want the element to be dragged from the center
+      this.updatePosition({
+        x: event.pageX,
+        y: event.pageY,
+        w: event.target.clientWidth,
+        h: event.target.clientHeight,
+      });
+    },
+
+    end(event) {
+      this.dragging = false;
+      this.toggleTransitionClass('add');
+      // get the closest snapPoint
+      const {x, y, name} = this.getClosestSnapPoint(
+        event.pageX,
+        event.pageY
+      );
+
+      this.currentPosition = name;
+      // update the element's position
+      this.updatePosition({x, y});
+
+      setTimeout(() => {
+        this.noExpand = false;
+      }, 0);
     },
 
     /**
@@ -311,109 +403,49 @@ export default {
     getClosestSnapPoint(x, y) {
       // get the closest snapPoints coordinates
       return this.snapPoints.reduce((closest, point, index) => {
-        const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+        const distance = Math.hypot(x - point.x, y - point.y);
 
         return distance < closest.distance ?
           Object.assign({}, point, {distance}) :
           closest;
       }, {distance: Number.MAX_SAFE_INTEGER});
     },
-
-    /**
-     *  Initialize the element to be draggable
-     */
-    initInteract() {
-      // get size of element
-      const w = this.$refs.breaky.clientWidth;
-      const h = this.$refs.breaky.clientHeight;
-
-      interact(this.$refs.breaky).draggable({
-        onstart: (event) => {
-          // prevent from expanding and transitioning while dragging
-          this.noExpand = true;
-          event.target.classList.remove(...this.draggableTransitionClasses);
-        },
-
-        onend: (event) => {
-          // allow to expand and transition again
-          setTimeout(() => {
-            this.noExpand = false;
-          }, 0);
-          event.target.classList.add(...this.draggableTransitionClasses);
-
-          // get the closest snapPoint
-          const {x, y, name} = this.getClosestSnapPoint(
-            event.pageX,
-            event.pageY
-          );
-
-          this.currentPosition = name;
-
-          // update the elements position
-          this.updatePosition(event.target, x, y, w, h);
-        },
-
-        onmove: (event) => {
-          // update the elements position based on its current size.
-          // the size may have changed if the element has been extended before this method is called.
-          // this matters if we want the element to be dragged from the center
-          this.updatePosition(
-            event.target,
-            event.pageX,
-            event.pageY,
-            event.target.clientWidth,
-            event.target.clientHeight
-          );
-        },
-      });
+    toggleTransitionClass(which) {
+      this.$refs.breaky.classList[which](...this.draggableTransitionClasses);
     },
     toggleExpanded() {
       if (this.noExpand) {
         return;
       }
-
       this.expanded = !this.expanded;
 
       const vMethod = this.expanded ? 'onOpen' : 'onClose';
 
       this[vMethod](this.$refs.panelwrapper);
     },
+    forceReflow(element) {
+      // Read a layout-affecting property to force a reflow before animating.
+      return getComputedStyle(element).height;
+    },
     onClose(element) {
       const {height} = getComputedStyle(element);
 
-      // eslint-disable-next-line no-param-reassign
       element.style.height = height;
-      // Force repaint to make sure the
-      // animation is triggered correctly.
-      // eslint-disable-next-line no-unused-expressions
-      getComputedStyle(element).height;
+      this.forceReflow(element);
       setTimeout(() => {
         element.style.height = 0;
       }, 0);
     },
     onOpen(element) {
-      const {width} = getComputedStyle(element);
-
-      /* eslint-disable no-param-reassign */
-      // element.style.width = width;
-      // element.style.position = 'absolute';
       element.style.visibility = 'hidden';
       element.style.height = 'auto';
-      /* eslint-enable */
       const {height} = getComputedStyle(element);
 
-      /* eslint-disable no-param-reassign */
-      // element.style.width = '';
-      // element.style.position = '';
       element.style.visibility = '';
       element.style.height = 0;
-      /* eslint-enable */
-      // Force repaint to make sure the
-      // animation is triggered correctly.
-      // eslint-disable-next-line no-unused-expressions
-      getComputedStyle(element).height;
+
+      this.forceReflow(element);
       setTimeout(() => {
-        // eslint-disable-next-line no-param-reassign
         element.style.height = height;
       });
     },
@@ -422,9 +454,44 @@ export default {
 </script>
 
 <style lang="postcss">
-@import '../css/custom-props.css';
-
 .tailwind-breakpoints {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+  'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+
+  .card {
+    --color-scheme-light-bg: rgba(255, 255, 255, 0.8);
+    --color-scheme-light-bg-selected: rgba(0, 0, 0, 0.15);
+    --color-scheme-light-text: #111;
+    --color-scheme-light-border: rgba(0, 0, 0, 0.1);
+    --color-scheme-light-svg-color: rgba(0, 0, 0, 0.4);
+
+    --color-scheme-dark-bg: rgba(0, 0, 0, 0.8);
+    --color-scheme-dark-bg-selected: rgba(255, 255, 255, 0.2);
+    --color-scheme-dark-text: #f8f8f8;
+    --color-scheme-dark-border: rgba(255, 255, 255, 0.3);
+    --color-scheme-dark-svg-color: rgba(255, 255, 255, 0.3);
+
+    font-size: 0.75rem;
+    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
+      var(--tw-ring-shadow, 0 0 #0000), 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+      0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    line-height: 1.5;
+    position: fixed;
+    display: flex;
+    padding: 0.25rem;
+    z-index: 50;
+    cursor: pointer;
+    font-weight: bold;
+    min-width: 150px;
+    border-radius: 1.75rem;
+    animation: fadeIn 0.25s forwards;
+    letter-spacing: 0.025em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: none;
+    user-select: none;
+  }
+
   &.color-scheme-auto {
     /* Light mode */
     @media (prefers-color-scheme: light) {
@@ -473,7 +540,7 @@ export default {
       color: var(--color-scheme-light-text);
     }
 
-    & .border-opacity-30 {
+    & .border-opacity {
       border-color: var(--color-scheme-light-border);
     }
 
@@ -492,7 +559,7 @@ export default {
       color: var(--color-scheme-dark-text);
     }
 
-    & .border-opacity-30 {
+    & .border-opacity {
       border-color: var(--color-scheme-dark-border);
     }
 
@@ -505,39 +572,6 @@ export default {
     }
   }
 
-  .tailwind-breakpoints {
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-      'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji',
-      'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-  }
-
-  @media print {
-    .tailwind-breakpoints {
-      display: none;
-    }
-  }
-
-  .card {
-    font-size: 0.75rem;
-    box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000),
-      var(--tw-ring-shadow, 0 0 #0000), 0 1px 3px 0 rgba(0, 0, 0, 0.1),
-      0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    line-height: 1.5;
-    position: fixed;
-    display: flex;
-    padding: 0.5rem;
-    z-index: 50;
-    cursor: pointer;
-    font-weight: bold;
-    min-width: 170px;
-    border-radius: 1.75rem;
-    animation: fadeIn 0.25s forwards;
-    letter-spacing: 0.025em;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    touch-action: none;
-    user-select: none;
-  }
 
   .column {
     flex-direction: column;
@@ -579,7 +613,13 @@ export default {
     transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
   }
   .panel-list {
-    display: relative;
+    position: relative;
+    width: 140px;
+    white-space: nowrap;
+  }
+
+  .panel-expanded .panel-list {
+    width: auto;
   }
 
   .panel {
@@ -591,15 +631,14 @@ export default {
   .current-breakpoint {
     display: flex;
     width: 100%;
-    transition-property: background-color, border-color, color, fill, stroke,
-      opacity, box-shadow, transform, filter, backdrop-filter;
+    transition-property: border-color;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 300ms;
     text-align: center;
     align-items: center;
     justify-content: space-around;
-    border: 2px solid transparent;
-    padding: 0.5rem 1rem;
+    border: 1px solid transparent;
+    padding: 0.4rem;
     border-radius: 9999px;
   }
 
@@ -612,7 +651,6 @@ export default {
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     transition-duration: 300ms;
   }
-
 
   /* */
 
@@ -627,6 +665,14 @@ export default {
 
   .h-selected {
     height: 34px;
+  }
+}
+
+/* Hide when printing */
+
+@media print {
+  .tailwind-breakpoints {
+    display: none;
   }
 }
 </style>

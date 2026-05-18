@@ -1,8 +1,8 @@
 import tailwindBreakpoints from '../../../src/module';
 
-// @ts-ignore
 export default defineNuxtConfig({
   modules: [
     tailwindBreakpoints,
   ],
+  compatibilityDate: '2026-05-13',
 });
