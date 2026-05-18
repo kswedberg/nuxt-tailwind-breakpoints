@@ -109,7 +109,7 @@ const resolveCssCandidates = (cssPath: ModuleOptions['cssPath']): string[] => {
 
 export default defineNuxtModule<ModuleOptions>({
   meta: {
-    name: 'nuxt3-tailwind-breakpoints',
+    name: 'nuxt-tailwind-breakpoints',
     configKey: 'tailwindBreakpoints',
     compatibility: {
       // Nuxt 3 and Nuxt 4 are both supported
@@ -132,7 +132,7 @@ export default defineNuxtModule<ModuleOptions>({
   }),
   async setup(options, nuxt) {
     const resolver = createResolver(import.meta.url);
-    const logger = useLogger('nuxt3-tailwind-breakpoints');
+    const logger = useLogger('nuxt-tailwind-breakpoints');
 
     if (!options.enabled || (!nuxt.options.dev && !options.enableInProd)) {
       return;
@@ -206,6 +206,6 @@ export default defineNuxtModule<ModuleOptions>({
       filePath: resolver.resolve('./runtime/components/TailwindBreakpoints'),
     });
 
-    logger.success('nuxt3-tailwind-breakpoints loaded');
+    logger.success('nuxt-tailwind-breakpoints loaded');
   },
 });

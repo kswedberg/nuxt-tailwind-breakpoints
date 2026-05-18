@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "nuxt3-tailwind-breakpoints-playground",
+  "name": "nuxt-tailwind-breakpoints-playground",
   "type": "module",
   "scripts": {
     "dev": "nuxi dev",

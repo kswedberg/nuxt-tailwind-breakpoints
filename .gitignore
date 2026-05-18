@@ -14,7 +14,7 @@ node_modules
 **/.yarn/*state*
 
 # pnpm
-**/.pnpm-store
+.pnpm-store/
 **/.pnpm/*state*
 
 # Generated dirs

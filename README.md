@@ -27,37 +27,37 @@ In order, the module uses the first of the following that is available:
 
 ## Quick Setup
 
-1. Add `nuxt3-tailwind-breakpoints` dependency to your project
+1. Add `nuxt-tailwind-breakpoints` dependency to your project
 
     ```bash
     # Using yarn
-    yarn add --dev nuxt3-tailwind-breakpoints
+    yarn add --dev nuxt-tailwind-breakpoints
 
     # Using npm
-    npm install --save-dev nuxt3-tailwind-breakpoints
+    npm install --save-dev nuxt-tailwind-breakpoints
 
     # Using pnpm
-    pnpm add -D nuxt3-tailwind-breakpoints
+    pnpm add -D nuxt-tailwind-breakpoints
     ```
 
-2. Add `nuxt3-tailwind-breakpoints` to the `modules` section of `nuxt.config.ts`
+2. Add `nuxt-tailwind-breakpoints` to the `modules` section of `nuxt.config.ts`
 
     ```js
     export default defineNuxtConfig({
       modules: [
-        'nuxt3-tailwind-breakpoints'
+        'nuxt-tailwind-breakpoints'
       ]
     })
     ```
 
 ### Configuration
 
-In `nuxt.config.ts`, you can pass options to `nuxt3-tailwind-breakpoints` by adding a top-level `tailwindBreakpoints` object:
+In `nuxt.config.ts`, you can pass options to `nuxt-tailwind-breakpoints` by adding a top-level `tailwindBreakpoints` object:
 
 ```js
 {
   modules: [
-    'nuxt3-tailwind-breakpoints',
+    'nuxt-tailwind-breakpoints',
   ],
   tailwindBreakpoints: {
     /* module options */
@@ -70,7 +70,7 @@ Or, instead of registering the module as a string value, you can use an array wi
 ```js
 {
   modules: [
-    ['nuxt3-tailwind-breakpoints', { /* module options */ }]
+    ['nuxt-tailwind-breakpoints', { /* module options */ }]
   ],
 }
 ```
@@ -109,7 +109,7 @@ The module will read this file automatically and merge your overrides on top of 
 
 ```ts
 export default defineNuxtConfig({
-  modules: ['nuxt3-tailwind-breakpoints'],
+  modules: ['nuxt-tailwind-breakpoints'],
   tailwindBreakpoints: {
     cssPath: '~~/app/styles/tailwind.css',
   },
@@ -160,14 +160,14 @@ npm run release
 ```
 
 <!-- Badges -->
-[npm-version-src]: https://img.shields.io/npm/v/nuxt3-tailwind-breakpoints/latest.svg?style=flat&colorA=18181B&colorB=28CF8D
-[npm-version-href]: https://npmjs.com/package/nuxt3-tailwind-breakpoints
+[npm-version-src]: https://img.shields.io/npm/v/nuxt-tailwind-breakpoints/latest.svg?style=flat&colorA=18181B&colorB=28CF8D
+[npm-version-href]: https://npmjs.com/package/nuxt-tailwind-breakpoints
 
-[npm-downloads-src]: https://img.shields.io/npm/dm/nuxt3-tailwind-breakpoints.svg?style=flat&colorA=18181B&colorB=28CF8D
-[npm-downloads-href]: https://npmjs.com/package/nuxt3-tailwind-breakpoints
+[npm-downloads-src]: https://img.shields.io/npm/dm/nuxt-tailwind-breakpoints.svg?style=flat&colorA=18181B&colorB=28CF8D
+[npm-downloads-href]: https://npmjs.com/package/nuxt-tailwind-breakpoints
 
-[license-src]: https://img.shields.io/npm/l/nuxt3-tailwind-breakpoints.svg?style=flat&colorA=18181B&colorB=28CF8D
-[license-href]: https://github.com/kswedberg/nuxt3-tailwind-breakpoints/blob/main/LICENSE
+[license-src]: https://img.shields.io/npm/l/nuxt-tailwind-breakpoints.svg?style=flat&colorA=18181B&colorB=28CF8D
+[license-href]: https://github.com/kswedberg/nuxt-tailwind-breakpoints/blob/main/LICENSE
 
 [nuxt-src]: https://img.shields.io/badge/Nuxt-18181B?logo=nuxt.js
 [nuxt-href]: https://nuxt.com
